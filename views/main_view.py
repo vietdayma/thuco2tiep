@@ -11,6 +11,7 @@ import numpy as np
 from utils.benchmark_utils import BenchmarkUtils
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 
 class MainView:
     def __init__(self, controller):
@@ -192,6 +193,21 @@ class MainView:
     def _show_benchmark_page(self):
         st.title("⏱️ Benchmark 1000 Requests")
         
+        # Lấy API URL từ environment hoặc dùng giá trị mặc định
+        API_URL = os.environ.get('API_URL', 'https://thuco2tiep.onrender.com')
+        st.info(f"Using API endpoint: {API_URL}")
+        
+        # Kiểm tra API health
+        try:
+            health_response = requests.get(f"{API_URL}/health")
+            if health_response.status_code == 200:
+                st.success("API is healthy and ready!")
+            else:
+                st.warning(f"API health check failed: {health_response.json().get('message', 'Unknown error')}")
+        except Exception as e:
+            st.error(f"Could not connect to API: {str(e)}")
+            return
+
         # Chọn chế độ test
         test_mode = st.radio(
             "Chế độ kiểm tra",
@@ -247,28 +263,40 @@ class MainView:
 
             def make_request():
                 try:
-                    # Sử dụng tham số ngẫu nhiên hoặc cố định
                     request_features = (
                         self.generate_random_features() 
                         if test_mode == "Tham số ngẫu nhiên" 
                         else features
                     )
                     
-                    # Thêm debug log
-                    if completed_requests == 0:  # Log only first request
-                        st.write("Debug - First request features:", request_features)
+                    # Gọi API với timeout
+                    start_time = time.perf_counter()
+                    response = requests.post(
+                        f"{API_URL}/predict",
+                        json=request_features,
+                        timeout=5  # 5 seconds timeout
+                    )
+                    total_time = (time.perf_counter() - start_time) * 1000  # ms
                     
-                    response = self.controller.predict_emission_api(request_features)
-                    
-                    # Thêm debug log cho request đầu tiên
-                    if completed_requests == 0:  # Log only first request
-                        st.write("Debug - First response:", response)
-                    
-                    return True
+                    if response.status_code == 200:
+                        result = response.json()
+                        if completed_requests == 0:
+                            st.write("Debug - First request:", {
+                                'features': request_features,
+                                'prediction': result['prediction'],
+                                'api_process_time': result['process_time_ms'],
+                                'total_time': total_time,
+                                'network_latency': total_time - result['process_time_ms']
+                            })
+                        return True
+                    else:
+                        if completed_requests == 0:
+                            st.error(f"API Error: {response.text}")
+                        return False
+                        
                 except Exception as e:
-                    # Log lỗi cho request đầu tiên
-                    if completed_requests == 0:  # Log only first request
-                        st.error(f"Debug - First request error: {str(e)}")
+                    if completed_requests == 0:
+                        st.error(f"Request Error: {str(e)}")
                     return False
 
             # Sử dụng ThreadPoolExecutor với 50 luồng cố định
