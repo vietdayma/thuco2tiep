@@ -27,7 +27,7 @@ limiter = Limiter(
     app=app,
     default_limits=["200 per minute", "20 per second"],
     storage_uri="memory://",
-    strategy="fixed-window-elastic-expiry"  # Cho phép burst traffic
+    strategy="fixed-window"  # Use standard fixed-window strategy
 )
 
 # Khởi tạo controller global
