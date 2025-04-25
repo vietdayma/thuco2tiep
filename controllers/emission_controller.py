@@ -2,6 +2,14 @@ from models.emission_model import EmissionModel
 import pandas as pd
 import requests
 import os
+import logging
+
+# Cấu hình logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 class EmissionController:
     def __init__(self):
@@ -13,6 +21,16 @@ class EmissionController:
 
     def initialize_model(self, data_path):
         """Initialize and train the model"""
+        logger.info("Initializing model...")
+        
+        # Try to load trained model first
+        if self.model.load_model():
+            logger.info("Successfully loaded pre-trained model")
+            self.trained = True
+        else:
+            logger.info("No pre-trained model found. Training new model...")
+            
+        # Get test score (will be calculated from loaded model or from training)
         test_score = self.model.train(data_path)
         self.trained = True
         
@@ -20,6 +38,7 @@ class EmissionController:
         df = self.model.load_and_preprocess_data(data_path)
         self.avg_emission = df['CO2 Emissions(g/km)'].mean()
         
+        logger.info(f"Model initialization complete. Test score: {test_score:.3f}")
         return test_score
 
     def predict_emission(self, features):

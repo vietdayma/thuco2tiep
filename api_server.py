@@ -4,6 +4,7 @@ from controllers.emission_controller import EmissionController
 import logging
 import time
 import os
+import traceback
 
 # Cấu hình logging
 logging.basicConfig(
@@ -18,12 +19,22 @@ CORS(app)  # Enable CORS for all routes
 # Khởi tạo controller global
 controller = None
 model_initialized = False
+initialization_in_progress = False
 
 def initialize_model():
     """Initialize the model if not already initialized"""
-    global controller, model_initialized
+    global controller, model_initialized, initialization_in_progress
+    
+    if initialization_in_progress:
+        logger.info("Model initialization already in progress, waiting...")
+        return False
+        
     if not model_initialized:
         try:
+            initialization_in_progress = True
+            logger.info("Starting model initialization...")
+            start_time = time.perf_counter()
+            
             controller = EmissionController()
             # Sử dụng đường dẫn tuyệt đối
             current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -31,14 +42,19 @@ def initialize_model():
             
             if not os.path.exists(csv_path):
                 logger.error(f"Could not find the file: {csv_path}")
+                initialization_in_progress = False
                 return False
                 
             test_score = controller.initialize_model(csv_path)
-            logger.info(f"Model initialized with test score: {test_score:.3f}")
+            initialization_time = time.perf_counter() - start_time
+            logger.info(f"Model initialized with test score: {test_score:.3f} in {initialization_time:.2f} seconds")
             model_initialized = True
+            initialization_in_progress = False
             return True
         except Exception as e:
             logger.error(f"Error initializing model: {str(e)}")
+            logger.error(traceback.format_exc())
+            initialization_in_progress = False
             return False
     return True
 
@@ -97,6 +113,7 @@ def predict():
     except Exception as e:
         # Log lỗi
         logger.error(f"Error processing request: {str(e)}")
+        logger.error(traceback.format_exc())
         return jsonify({
             'error': str(e),
             'process_time_ms': (time.perf_counter() - start_time) * 1000
@@ -106,10 +123,16 @@ def predict():
 def health_check():
     """Health check endpoint"""
     if not model_initialized:
-        return jsonify({
-            "status": "initializing",
-            "message": "Model not yet initialized"
-        }), 503
+        if initialization_in_progress:
+            return jsonify({
+                "status": "initializing",
+                "message": "Model initialization in progress"
+            }), 503
+        else:
+            return jsonify({
+                "status": "initializing",
+                "message": "Model not yet initialized"
+            }), 503
     return jsonify({
         "status": "healthy",
         "message": "API is running and model is initialized"
@@ -120,13 +143,13 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     
     # Initialize model at startup
+    logger.info(f"Starting server on port {port}...")
+    logger.info("Initializing model at startup...")
+    
     if not initialize_model():
         logger.error("Failed to initialize model at startup")
         exit(1)
         
-    # Log startup
-    logger.info(f"Starting server on port {port}...")
-    
     # Run with gunicorn in production, Flask dev server for local
     if os.environ.get('RENDER'):
         # Render will run with gunicorn

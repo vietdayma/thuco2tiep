@@ -11,4 +11,5 @@ matplotlib
 seaborn
 streamlit
 scipy
+joblib
 --only-binary=numpy,scipy,scikit-learn
