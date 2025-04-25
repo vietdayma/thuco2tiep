@@ -6,4 +6,5 @@ scikit-learn
 waitress
 gunicorn
 python-dotenv
+requests
 --only-binary=numpy,scipy,scikit-learn
