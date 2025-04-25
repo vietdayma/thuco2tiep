@@ -7,4 +7,8 @@ waitress
 gunicorn
 python-dotenv
 requests
+matplotlib
+seaborn
+streamlit
+scipy
 --only-binary=numpy,scipy,scikit-learn
