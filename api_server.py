@@ -46,6 +46,10 @@ def predict():
         logger.error(f"Error processing request: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
 if __name__ == '__main__':
     # Log server startup
     logger.info("Starting production server with waitress...")
