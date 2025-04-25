@@ -16,11 +16,6 @@ class MainView:
     def __init__(self, controller):
         self.controller = controller
         self.benchmark_utils = BenchmarkUtils()
-        st.set_page_config(
-            page_title="CO2 Emission Predictor",
-            page_icon="🌍",
-            layout="wide"
-        )
 
     def show(self):
         """Display the main application interface"""

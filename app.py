@@ -1,4 +1,13 @@
 import streamlit as st
+
+# Must be the first Streamlit command
+st.set_page_config(
+    page_title="CO2 Emission Predictor",
+    page_icon="🌍",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 from controllers.emission_controller import EmissionController
 from views.main_view import MainView
 import subprocess
