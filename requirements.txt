@@ -1,9 +1,9 @@
-flask==2.0.1
-flask-cors==3.0.10
-pandas==1.3.5
-numpy==1.19.5
-scikit-learn==0.24.2
-waitress==2.1.2
-gunicorn==20.1.0
-python-dotenv==0.19.2
+flask
+flask-cors
+pandas
+numpy
+scikit-learn
+waitress
+gunicorn
+python-dotenv
 --only-binary=numpy,scipy,scikit-learn
