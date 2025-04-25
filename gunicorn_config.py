@@ -24,6 +24,6 @@ loglevel = 'error'
 accesslog = None  # Tắt access log
 errorlog = '-'  # Ghi error log ra stderr
 
-# Tối ưu buffer
-post_worker_init = None
-post_fork = None 
+# Xóa các cấu hình không hợp lệ
+# post_worker_init = None
+# post_fork = None 
