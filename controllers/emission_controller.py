@@ -1,13 +1,15 @@
 from models.emission_model import EmissionModel
 import pandas as pd
 import requests
+import os
 
 class EmissionController:
     def __init__(self):
         self.model = EmissionModel()
         self.trained = False
         self.avg_emission = None
-        self.api_url = "http://localhost:5000/predict"  # URL của API server
+        # Use API URL from environment or default to local for development
+        self.api_url = os.environ.get('API_URL', 'http://localhost:10000') + "/predict"
 
     def initialize_model(self, data_path):
         """Initialize and train the model"""

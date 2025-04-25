@@ -17,11 +17,12 @@ CORS(app)  # Enable CORS for all routes
 
 # Khởi tạo controller global
 controller = None
+model_initialized = False
 
 def initialize_model():
     """Initialize the model if not already initialized"""
-    global controller
-    if controller is None:
+    global controller, model_initialized
+    if not model_initialized:
         try:
             controller = EmissionController()
             # Sử dụng đường dẫn tuyệt đối
@@ -34,22 +35,26 @@ def initialize_model():
                 
             test_score = controller.initialize_model(csv_path)
             logger.info(f"Model initialized with test score: {test_score:.3f}")
+            model_initialized = True
             return True
         except Exception as e:
             logger.error(f"Error initializing model: {str(e)}")
             return False
     return True
 
-@app.before_first_request
+# Thay thế before_first_request bằng before_request
+@app.before_request
 def setup():
-    """Initialize model before first request"""
-    if not initialize_model():
-        logger.error("Failed to initialize model")
+    """Initialize model before processing requests"""
+    global model_initialized
+    if not model_initialized:
+        if not initialize_model():
+            logger.error("Failed to initialize model")
 
 @app.route('/predict', methods=['POST'])
 def predict():
     # Ensure model is initialized
-    if controller is None and not initialize_model():
+    if not model_initialized and not initialize_model():
         return jsonify({'error': 'Model not initialized'}), 500
         
     # Bắt đầu đo thời gian xử lý
@@ -100,7 +105,7 @@ def predict():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    if controller is None:
+    if not model_initialized:
         return jsonify({
             "status": "initializing",
             "message": "Model not yet initialized"
