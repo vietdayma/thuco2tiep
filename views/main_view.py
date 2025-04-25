@@ -253,9 +253,22 @@ class MainView:
                         if test_mode == "Tham số ngẫu nhiên" 
                         else features
                     )
+                    
+                    # Thêm debug log
+                    if completed_requests == 0:  # Log only first request
+                        st.write("Debug - First request features:", request_features)
+                    
                     response = self.controller.predict_emission_api(request_features)
+                    
+                    # Thêm debug log cho request đầu tiên
+                    if completed_requests == 0:  # Log only first request
+                        st.write("Debug - First response:", response)
+                    
                     return True
-                except:
+                except Exception as e:
+                    # Log lỗi cho request đầu tiên
+                    if completed_requests == 0:  # Log only first request
+                        st.error(f"Debug - First request error: {str(e)}")
                     return False
 
             # Sử dụng ThreadPoolExecutor với 50 luồng cố định

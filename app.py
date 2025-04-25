@@ -19,8 +19,20 @@ import requests
 def start_api_server():
     """Start API server and wait until it's ready"""
     try:
-        # Khởi động API server
-        api_process = subprocess.Popen([sys.executable, "api_server.py"])
+        # Get absolute path to api_server.py
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        api_server_path = os.path.join(current_dir, "api_server.py")
+        
+        if not os.path.exists(api_server_path):
+            st.error(f"Could not find API server at {api_server_path}")
+            return None
+            
+        # Khởi động API server với đường dẫn tuyệt đối
+        api_process = subprocess.Popen(
+            [sys.executable, api_server_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
         
         # Chờ API server khởi động (tối đa 30 giây)
         max_retries = 30
@@ -33,7 +45,15 @@ def start_api_server():
                     return api_process
             except requests.exceptions.ConnectionError:
                 time.sleep(1)
+                # Kiểm tra xem process có còn chạy không
+                if api_process.poll() is not None:
+                    stdout, stderr = api_process.communicate()
+                    st.error(f"API server crashed. Error: {stderr.decode()}")
+                    return None
                 continue
+            except Exception as e:
+                st.error(f"Error connecting to API server: {str(e)}")
+                return None
         
         st.error("Timeout waiting for API server to start")
         return None
