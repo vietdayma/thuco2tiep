@@ -3,6 +3,8 @@ import os
 import sys
 import requests
 import time
+import threading
+import random
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
@@ -24,19 +26,69 @@ from views.main_view import MainView
 # Set API URL environment variable
 os.environ['API_URL'] = 'https://thuco2tiep.onrender.com'
 
+# Tạo semaphore để giới hạn số lượng request đồng thời
+api_semaphore = threading.Semaphore(5)
+
+# Cache cho các kết quả API
+prediction_cache = {}
+cache_lock = threading.Lock()
+MAX_CACHE_SIZE = 50
+
 def get_session():
     """Create a requests session with retry logic"""
     session = requests.Session()
     retry = Retry(
         total=3,  # Maximum number of retries
         backoff_factor=0.5,  # Backoff factor for retries
-        status_forcelist=[500, 502, 503, 504],  # Status codes to retry on
+        status_forcelist=[429, 500, 502, 503, 504],  # Status codes to retry on
         allowed_methods=["GET", "POST"]  # Methods to retry
     )
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     return session
+
+def get_cache_key(features):
+    """Generate a cache key from features"""
+    try:
+        key_parts = []
+        for k, v in sorted(features.items()):
+            key_parts.append(f"{k}:{v}")
+        return "|".join(key_parts)
+    except:
+        return None
+
+def predict_with_api(features):
+    """Make prediction with API using semaphore to limit concurrent requests"""
+    cache_key = get_cache_key(features)
+    
+    # Check cache first
+    with cache_lock:
+        if cache_key in prediction_cache:
+            return prediction_cache[cache_key]
+    
+    # Use semaphore to limit concurrent API calls
+    with api_semaphore:
+        try:
+            # Add a small random delay to avoid bursts of requests
+            time.sleep(random.uniform(0.05, 0.2))
+            
+            # Make API request
+            session = get_session()
+            api_url = os.environ.get('API_URL') + "/predict"
+            response = session.post(api_url, json=features, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Store in cache
+            with cache_lock:
+                if len(prediction_cache) < MAX_CACHE_SIZE:
+                    prediction_cache[cache_key] = result
+            
+            return result
+        except Exception as e:
+            st.error(f"Lỗi dự đoán từ API: {str(e)}")
+            raise
 
 def check_api_health():
     """Check if API is available and ready"""
@@ -99,8 +151,10 @@ def main():
         st.error(f"Lỗi: Không thể tìm thấy file '{csv_path}'. Vui lòng đảm bảo file tồn tại trong thư mục gốc của dự án.")
         return
 
-    # Initialize controller
+    # Initialize controller with overridden API prediction method
     controller = EmissionController()
+    # Override the predict_emission_api method to use our semaphore-controlled function
+    controller.predict_emission_api = predict_with_api
     
     # Train the model
     try:

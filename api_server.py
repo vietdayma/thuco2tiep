@@ -5,6 +5,9 @@ import logging
 import time
 import os
 import traceback
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+import threading
 
 # Cấu hình logging
 logging.basicConfig(
@@ -16,10 +19,24 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# Thêm rate limiter để tránh quá tải
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["60 per minute", "5 per second"],
+    storage_uri="memory://",
+    strategy="fixed-window"
+)
+
 # Khởi tạo controller global
 controller = None
 model_initialized = False
 initialization_in_progress = False
+prediction_lock = threading.RLock()  # Sử dụng RLock cho các dự đoán
+
+# Cache đơn giản cho kết quả dự đoán
+prediction_cache = {}
+MAX_CACHE_SIZE = 100
 
 def initialize_model():
     """Initialize the model if not already initialized"""
@@ -67,7 +84,21 @@ def setup():
         if not initialize_model():
             logger.error("Failed to initialize model")
 
+def get_cache_key(data):
+    """Create a simple cache key from input data"""
+    try:
+        key_parts = []
+        for field in ['Engine Size(L)', 'Cylinders', 'Fuel Consumption Comb (L/100 km)', 
+                     'Horsepower', 'Weight (kg)', 'Year']:
+            if field in data:
+                key_parts.append(f"{field}:{data[field]}")
+        return "|".join(key_parts)
+    except:
+        # Fallback in case of any error
+        return None
+
 @app.route('/predict', methods=['POST'])
+@limiter.limit("30 per second")  # Adjust rate limit for prediction endpoint
 def predict():
     # Ensure model is initialized
     if not model_initialized and not initialize_model():
@@ -93,11 +124,29 @@ def predict():
                 'error': f'Missing required fields. Required: {required_fields}'
             }), 400
         
+        # Kiểm tra cache trước khi dự đoán
+        cache_key = get_cache_key(data)
+        if cache_key and cache_key in prediction_cache:
+            cached_result = prediction_cache[cache_key]
+            logger.info(f"Cache hit! Returning cached prediction: {cached_result:.2f}")
+            process_time = (time.perf_counter() - start_time) * 1000
+            return jsonify({
+                'prediction': float(cached_result),
+                'process_time_ms': process_time,
+                'cached': True
+            })
+        
         # Log request
         logger.info(f"Received prediction request: {data}")
         
-        # Make prediction
-        prediction = controller.predict_emission(data)
+        # Sử dụng lock để đảm bảo không quá tải mô hình
+        with prediction_lock:
+            # Make prediction
+            prediction = controller.predict_emission(data)
+            
+            # Lưu vào cache
+            if cache_key and len(prediction_cache) < MAX_CACHE_SIZE:
+                prediction_cache[cache_key] = prediction
         
         # Tính thời gian xử lý
         process_time = (time.perf_counter() - start_time) * 1000
@@ -107,7 +156,8 @@ def predict():
         
         return jsonify({
             'prediction': float(prediction),
-            'process_time_ms': process_time
+            'process_time_ms': process_time,
+            'cached': False
         })
         
     except Exception as e:
@@ -135,7 +185,21 @@ def health_check():
             }), 503
     return jsonify({
         "status": "healthy",
-        "message": "API is running and model is initialized"
+        "message": "API is running and model is initialized",
+        "stats": {
+            "cache_size": len(prediction_cache)
+        }
+    }), 200
+
+@app.route('/cache/clear', methods=['POST'])
+def clear_cache():
+    """Clear the prediction cache"""
+    global prediction_cache
+    old_size = len(prediction_cache)
+    prediction_cache = {}
+    return jsonify({
+        "status": "success",
+        "message": f"Cache cleared. {old_size} entries removed."
     }), 200
 
 if __name__ == '__main__':
