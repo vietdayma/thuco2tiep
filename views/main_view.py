@@ -334,6 +334,16 @@ class MainView:
                                 'total_time': total_time,
                                 'network_latency': total_time - result['process_time_ms']
                             })
+                        
+                        # Thêm dòng này để ghi lại kết quả benchmark
+                        self.benchmark_utils.add_result(
+                            total_time=total_time,
+                            network_time=total_time - result.get('process_time_ms', 0),
+                            processing_time=result.get('process_time_ms', 0),
+                            prediction=result.get('prediction', 0),
+                            status=result.get('status', 'unknown')
+                        )
+                        
                         return True
                     else:
                         if completed_requests == 0:
