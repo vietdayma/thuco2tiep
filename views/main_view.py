@@ -293,6 +293,8 @@ class MainView:
         
         # Nút kích hoạt quá trình benchmark
         if st.button("Chạy Benchmark"):
+
+            self.benchmark_utils.clear_results()
             # Tạo container cho log và thanh tiến trình
             log_container = st.empty()
             progress_bar = st.progress(0)
