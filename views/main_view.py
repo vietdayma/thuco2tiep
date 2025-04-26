@@ -293,8 +293,6 @@ class MainView:
         
         # Nút kích hoạt quá trình benchmark
         if st.button("Chạy Benchmark"):
-
-            self.benchmark_utils = BenchmarkUtils()  # Tạo mới đối tượng benchmark_utils
             # Tạo container cho log và thanh tiến trình
             log_container = st.empty()
             progress_bar = st.progress(0)
@@ -306,6 +304,12 @@ class MainView:
             n_requests = 1000
             successful_requests = 0
             completed_requests = 0
+            
+            # Khởi tạo benchmark utils và bắt đầu phiên benchmark mới
+            self.benchmark_utils.start_benchmark()
+            
+            # Danh sách lưu kết quả chi tiết
+            benchmark_results = []
 
             # Hàm thực hiện một request đến API
             def make_request():
@@ -317,42 +321,75 @@ class MainView:
                         else features
                     )
                     
-                    # Gọi API với timeout
-                    start_time = time.perf_counter()
+                    # Gọi API với timeout và đo thời gian
+                    req_start_time = time.perf_counter()
                     response = requests.post(
                         f"{API_URL}/predict",
                         json=request_features,
                         timeout=5  # 5 seconds timeout
                     )
-                    total_time = (time.perf_counter() - start_time) * 1000  # ms
+                    req_end_time = time.perf_counter()
+                    total_time = (req_end_time - req_start_time) * 1000  # ms
                     
                     if response.status_code == 200:
                         result = response.json()
+                        
+                        # Tính toán thời gian xử lý và mạng
+                        processing_time = result.get('process_time_ms', 0)
+                        network_time = total_time - processing_time if total_time > processing_time else 0
+                        
+                        # Lưu thông tin chi tiết request
+                        timing_data = {
+                            'timestamp': pd.Timestamp.now(),
+                            'total_time': total_time,
+                            'network_time': network_time,
+                            'processing_time': processing_time,
+                            'prediction': result.get('prediction', 0),
+                            'status': result.get('status', 'success'),
+                            'error': None
+                        }
+                        benchmark_results.append(timing_data)
+                        
+                        # Debug thông tin request đầu tiên
                         if completed_requests == 0:
                             st.write("Debug - First request:", {
                                 'features': request_features,
                                 'prediction': result['prediction'],
                                 'api_process_time': result['process_time_ms'],
                                 'total_time': total_time,
-                                'network_latency': total_time - result['process_time_ms']
+                                'network_latency': network_time
                             })
-                        
-                        # Thêm dòng này để ghi lại kết quả benchmark
-                        self.benchmark_utils.add_result(
-                            total_time=total_time,
-                            network_time=total_time - result.get('process_time_ms', 0),
-                            processing_time=result.get('process_time_ms', 0),
-                            prediction=result.get('prediction', 0),
-                            status=result.get('status', 'unknown')
-                        )
-                        
                         return True
                     else:
+                        # Lưu thông tin về request thất bại
+                        timing_data = {
+                            'timestamp': pd.Timestamp.now(),
+                            'total_time': total_time,
+                            'network_time': 0,
+                            'processing_time': 0,
+                            'prediction': 0,
+                            'status': 'error',
+                            'error': f"HTTP {response.status_code}"
+                        }
+                        benchmark_results.append(timing_data)
+                        
                         if completed_requests == 0:
                             st.error(f"API Error: {response.text}")
                         return False
                         
                 except Exception as e:
+                    # Lưu thông tin về request lỗi
+                    timing_data = {
+                        'timestamp': pd.Timestamp.now(),
+                        'total_time': 0,
+                        'network_time': 0,
+                        'processing_time': 0,
+                        'prediction': 0,
+                        'status': 'error',
+                        'error': str(e)
+                    }
+                    benchmark_results.append(timing_data)
+                    
                     if completed_requests == 0:
                         st.error(f"Request Error: {str(e)}")
                     return False
@@ -387,6 +424,9 @@ class MainView:
             end_time = time.perf_counter()
             total_time = end_time - start_time
             
+            # Kết thúc phiên benchmark và lưu kết quả
+            self.benchmark_utils.end_benchmark()
+            
             # Hiển thị kết quả benchmark
             st.success("Benchmark hoàn thành!")
             st.markdown(f"""
@@ -397,57 +437,26 @@ class MainView:
             - Tốc độ trung bình: {n_requests/total_time:.1f} requests/giây
             """)
             
-            # Hiển thị bảng kết quả chi tiết
-            st.subheader("Kết quả benchmark chi tiết")
-
-            # Lấy DataFrame kết quả từ benchmark_utils
+            # Hiển thị bảng kết quả chi tiết từ benchmark_utils
+            st.markdown("### Bảng chi tiết kết quả benchmark:")
+            
+            # Lưu kết quả vào đối tượng benchmark_utils
+            self.benchmark_utils.results = benchmark_results
+            
+            # Sử dụng hàm get_results_df để lấy DataFrame kết quả
             results_df = self.benchmark_utils.get_results_df()
-
-            # Định dạng lại các cột để hiển thị đẹp hơn
-            if not results_df.empty:
-                # Format các cột thời gian để hiển thị 2 chữ số thập phân
-                for time_col in ['total_time', 'network_time', 'processing_time']:
-                    results_df[time_col] = results_df[time_col].round(2).astype(str) + " ms"
-                
-                # Format các cột phần trăm
-                for pct_col in ['network_percentage', 'processing_percentage']:
-                    results_df[pct_col] = results_df[pct_col].astype(str) + " %"
-                
-                # Format giá trị dự đoán
-                results_df['prediction'] = results_df['prediction'].round(2).astype(str) + " g/km"
-                
-                # Hiển thị bảng với định dạng màu sắc
-                st.dataframe(
-                    results_df,
-                    column_config={
-                        "request_number": st.column_config.NumberColumn("STT", help="Số thứ tự request"),
-                        "timestamp": st.column_config.DatetimeColumn("Thời điểm", format="HH:mm:ss.SSS"),
-                        "total_time": st.column_config.TextColumn("Tổng thời gian"),
-                        "network_time": st.column_config.TextColumn("Thời gian mạng"),
-                        "processing_time": st.column_config.TextColumn("Thời gian xử lý"),
-                        "network_percentage": st.column_config.TextColumn("% Mạng"),
-                        "processing_percentage": st.column_config.TextColumn("% Xử lý"),
-                        "prediction": st.column_config.TextColumn("Kết quả dự đoán"),
-                        "status": st.column_config.TextColumn("Trạng thái"),
-                        "error": st.column_config.TextColumn("Lỗi (nếu có)")
-                    },
-                    hide_index=True,
-                    use_container_width=True
-                )
-                
-                # Hiển thị tổng kết về nguồn kết quả
-                fallback_count = (results_df['status'] == 'fallback').sum()
-                cached_count = results_df['status'].str.contains('cached', case=False).sum() if 'status' in results_df.columns else 0
-                api_count = len(results_df) - fallback_count - cached_count
-                
-                st.info(f"""
-                **Phân tích nguồn kết quả:**
-                - Kết quả từ API: {api_count} ({api_count/len(results_df)*100:.1f}%)
-                - Kết quả từ cache: {cached_count} ({cached_count/len(results_df)*100:.1f}%)
-                - Kết quả dự phòng: {fallback_count} ({fallback_count/len(results_df)*100:.1f}%)
-                """)
-            else:
-                st.info("Chưa có dữ liệu benchmark. Hãy chạy benchmark trước.")
+            
+            # Lấy mẫu để hiển thị (tối đa 100 dòng)
+            if len(results_df) > 100:
+                results_df = results_df.sample(n=100).sort_values('request_number')
+                st.info(f"Hiển thị 100 mẫu ngẫu nhiên từ tổng số {len(benchmark_results)} requests")
+            
+            # Hiển thị bảng với định dạng
+            st.dataframe(
+                results_df, 
+                use_container_width=True,
+                hide_index=True
+            )
 
     def generate_random_features(self):
         """
