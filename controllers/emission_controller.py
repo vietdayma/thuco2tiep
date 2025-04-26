@@ -179,22 +179,22 @@ class EmissionController:
         # Lời khuyên cho xe có mức phát thải cao
         if emission_value > 160:
             tips.extend([
-                "Cân nhắc chuyển sang xe tiết kiệm nhiên liệu hơn",  # Consider switching to a more fuel-efficient vehicle
-                "Bảo dưỡng thường xuyên giúp giảm khí thải",        # Regular maintenance can help reduce emissions
-                "Tránh tăng tốc và phanh đột ngột"             # Avoid aggressive acceleration and braking
+                "Cân nhắc chuyển sang xe tiết kiệm nhiên liệu hơn",
+                "Bảo dưỡng xe thường xuyên giúp giảm lượng khí thải",
+                "Tránh tăng tốc và phanh đột ngột khi lái xe"
             ])
             
         # Lời khuyên cho xe có mức phát thải trung bình
         if emission_value > 140:
             tips.extend([
-                "Kiểm tra áp suất lốp thường xuyên",       # Check tire pressure regularly
-                "Loại bỏ trọng lượng thừa khỏi xe"  # Remove excess weight from the vehicle
+                "Kiểm tra áp suất lốp xe thường xuyên",
+                "Loại bỏ các trọng lượng không cần thiết khỏi xe"
             ])
             
         # Lời khuyên chung cho tất cả các xe
         tips.extend([
-            "Sử dụng kỹ thuật lái xe thân thiện môi trường",   # Use eco-driving techniques
-            "Lên kế hoạch hành trình để tránh tắc nghẽn"  # Plan your trips to avoid traffic
+            "Sử dụng kỹ thuật lái xe thân thiện với môi trường",
+            "Lên kế hoạch hành trình trước để tránh tắc nghẽn giao thông"
         ])
         
         return tips 
