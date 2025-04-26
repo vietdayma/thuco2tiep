@@ -384,6 +384,58 @@ class MainView:
             - Số request thành công: {successful_requests}/{n_requests}
             - Tốc độ trung bình: {n_requests/total_time:.1f} requests/giây
             """)
+            
+            # Hiển thị bảng kết quả chi tiết
+            st.subheader("Kết quả benchmark chi tiết")
+
+            # Lấy DataFrame kết quả từ benchmark_utils
+            results_df = self.benchmark_utils.get_results_df()
+
+            # Định dạng lại các cột để hiển thị đẹp hơn
+            if not results_df.empty:
+                # Format các cột thời gian để hiển thị 2 chữ số thập phân
+                for time_col in ['total_time', 'network_time', 'processing_time']:
+                    results_df[time_col] = results_df[time_col].round(2).astype(str) + " ms"
+                
+                # Format các cột phần trăm
+                for pct_col in ['network_percentage', 'processing_percentage']:
+                    results_df[pct_col] = results_df[pct_col].astype(str) + " %"
+                
+                # Format giá trị dự đoán
+                results_df['prediction'] = results_df['prediction'].round(2).astype(str) + " g/km"
+                
+                # Hiển thị bảng với định dạng màu sắc
+                st.dataframe(
+                    results_df,
+                    column_config={
+                        "request_number": st.column_config.NumberColumn("STT", help="Số thứ tự request"),
+                        "timestamp": st.column_config.DatetimeColumn("Thời điểm", format="HH:mm:ss.SSS"),
+                        "total_time": st.column_config.TextColumn("Tổng thời gian"),
+                        "network_time": st.column_config.TextColumn("Thời gian mạng"),
+                        "processing_time": st.column_config.TextColumn("Thời gian xử lý"),
+                        "network_percentage": st.column_config.TextColumn("% Mạng"),
+                        "processing_percentage": st.column_config.TextColumn("% Xử lý"),
+                        "prediction": st.column_config.TextColumn("Kết quả dự đoán"),
+                        "status": st.column_config.TextColumn("Trạng thái"),
+                        "error": st.column_config.TextColumn("Lỗi (nếu có)")
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+                
+                # Hiển thị tổng kết về nguồn kết quả
+                fallback_count = (results_df['status'] == 'fallback').sum()
+                cached_count = results_df['status'].str.contains('cached', case=False).sum() if 'status' in results_df.columns else 0
+                api_count = len(results_df) - fallback_count - cached_count
+                
+                st.info(f"""
+                **Phân tích nguồn kết quả:**
+                - Kết quả từ API: {api_count} ({api_count/len(results_df)*100:.1f}%)
+                - Kết quả từ cache: {cached_count} ({cached_count/len(results_df)*100:.1f}%)
+                - Kết quả dự phòng: {fallback_count} ({fallback_count/len(results_df)*100:.1f}%)
+                """)
+            else:
+                st.info("Chưa có dữ liệu benchmark. Hãy chạy benchmark trước.")
 
     def generate_random_features(self):
         """
