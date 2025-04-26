@@ -236,7 +236,7 @@ class MainView:
         Hiển thị trang benchmark để đánh giá hiệu suất của API.
         Cho phép chạy nhiều request đồng thời và đo thời gian phản hồi.
         """
-        st.title("⏱️ Benchmark 1000 yêu cầu")
+        st.title("⏱️ Benchmark 1000 requests")
         
         # Lấy API URL từ environment hoặc dùng giá trị mặc định
         API_URL = os.environ.get('API_URL', 'https://thuco2tiep.onrender.com')
@@ -297,9 +297,9 @@ class MainView:
             st.info("Mỗi request sẽ sử dụng một bộ tham số ngẫu nhiên khác nhau")
             st.write("Ví dụ tham số ngẫu nhiên:", features)
         
-        # Đặt các tham số benchmark
-        num_requests = st.slider("Số lượng request", min_value=10, max_value=1000, value=1000, step=10)
-        concurrency = st.slider("Số lượng request đồng thời", min_value=1, max_value=50, value=50, step=1)
+        # Cố định số lượng request và concurrency
+        num_requests = 1000
+        concurrency = 50
         
         # Hàm thực hiện một request
         def make_request():
@@ -372,8 +372,8 @@ class MainView:
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            # Thông báo bắt đầu
-            status_text.info(f"Đang chạy {num_requests} request với {concurrency} request đồng thời...")
+            # Bắt đầu đếm thời gian
+            start_time = time.time()
             
             # Sử dụng ThreadPoolExecutor để gửi nhiều request cùng lúc
             with ThreadPoolExecutor(max_workers=concurrency) as executor:
@@ -388,31 +388,28 @@ class MainView:
                     # Cập nhật tiến trình
                     progress = (i + 1) / num_requests
                     progress_bar.progress(progress)
-                    status_text.info(f"Đã hoàn thành {i+1}/{num_requests} request ({progress:.1%})")
+                    
+                    # Tính thời gian đã trôi qua
+                    elapsed_time = time.time() - start_time
+                    status_text.info(f"Đã xử lý {i+1}/{num_requests} requests... ({elapsed_time:.1f}s)")
             
             # Kết thúc benchmark
             self.benchmark_utils.end_benchmark()
             stats = self.benchmark_utils.get_statistics()
             
-            # Hiển thị kết quả
-            status_text.success("Benchmark hoàn tất!")
+            # Hiển thị kết quả hoàn tất
+            status_text.success("Benchmark hoàn thành!")
             
-            # Hiển thị thống kê
-            st.subheader("📊 Kết quả Benchmark")
+            # Hiển thị thống kê kiểu bullet points như trong ảnh
+            st.subheader("Kết quả:")
             
-            # Hiển thị các thông số chính
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Tổng số yêu cầu", f"{stats['total_requests']}")
-                st.metric("Yêu cầu thành công", f"{stats['successful_requests']} ({stats['success_rate']:.1f}%)")
-            
-            with col2:
-                st.metric("Thời gian trung bình", f"{stats['avg_total_time']/1000:.3f} s")
-                st.metric("Thời gian mạng", f"{stats['avg_network_time']/1000:.3f} s")
-            
-            with col3:
-                st.metric("Thời gian xử lý", f"{stats['avg_processing_time']/1000:.3f} s")
-                st.metric("Yêu cầu/giây", f"{stats['requests_per_second']:.2f}")
+            # Hiển thị kết quả dạng bullet points
+            st.markdown(f"""
+            * Chế độ kiểm tra: {test_mode}
+            * Tổng thời gian: {stats['total_time']:.2f} giây
+            * Số request thành công: {stats['successful_requests']}/{num_requests}
+            * Tốc độ trung bình: {stats['requests_per_second']:.1f} requests/giây
+            """)
             
             # Hiển thị biểu đồ
             st.subheader("📈 Biểu đồ thời gian phản hồi")
