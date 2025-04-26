@@ -329,21 +329,23 @@ class MainView:
                         timeout=5  # 5 seconds timeout
                     )
                     req_end_time = time.perf_counter()
-                    total_time = (req_end_time - req_start_time) * 1000  # ms
+                    total_time_ms = (req_end_time - req_start_time) * 1000  # ms
+                    total_time_sec = (req_end_time - req_start_time)  # seconds
                     
                     if response.status_code == 200:
                         result = response.json()
                         
                         # Tính toán thời gian xử lý và mạng
-                        processing_time = result.get('process_time_ms', 0)
-                        network_time = total_time - processing_time if total_time > processing_time else 0
+                        processing_time_ms = result.get('process_time_ms', 0)
+                        processing_time_sec = processing_time_ms / 1000  # Convert ms to seconds
+                        network_time_sec = total_time_sec - processing_time_sec if total_time_sec > processing_time_sec else 0
                         
                         # Lưu thông tin chi tiết request
                         timing_data = {
                             'timestamp': pd.Timestamp.now(),
-                            'total_time': total_time,
-                            'network_time': network_time,
-                            'processing_time': processing_time,
+                            'total_time': total_time_sec,  # Seconds
+                            'network_time': network_time_sec,  # Seconds
+                            'processing_time': processing_time_sec,  # Seconds
                             'prediction': result.get('prediction', 0),
                             'status': result.get('status', 'success'),
                             'error': None
@@ -355,16 +357,16 @@ class MainView:
                             st.write("Debug - First request:", {
                                 'features': request_features,
                                 'prediction': result['prediction'],
-                                'api_process_time': result['process_time_ms'],
-                                'total_time': total_time,
-                                'network_latency': network_time
+                                'api_process_time': f"{processing_time_sec:.3f}s ({processing_time_ms}ms)",
+                                'total_time': f"{total_time_sec:.3f}s",
+                                'network_latency': f"{network_time_sec:.3f}s"
                             })
                         return True
                     else:
                         # Lưu thông tin về request thất bại
                         timing_data = {
                             'timestamp': pd.Timestamp.now(),
-                            'total_time': total_time,
+                            'total_time': total_time_sec,  # Seconds
                             'network_time': 0,
                             'processing_time': 0,
                             'prediction': 0,
@@ -450,6 +452,9 @@ class MainView:
             if len(results_df) > 100:
                 results_df = results_df.sample(n=100).sort_values('request_number')
                 st.info(f"Hiển thị 100 mẫu ngẫu nhiên từ tổng số {len(benchmark_results)} requests")
+            
+            # Thêm thông tin về đơn vị đo
+            st.markdown("**Lưu ý**: Thời gian trong bảng được đo bằng đơn vị **giây (s)**")
             
             # Hiển thị bảng với định dạng
             st.dataframe(

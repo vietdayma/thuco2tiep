@@ -174,6 +174,11 @@ class BenchmarkUtils:
             # Thêm số thứ tự yêu cầu
             df['request_number'] = range(1, len(df) + 1)
             
+            # Làm tròn các giá trị thời gian để dễ đọc (giữ 3 chữ số thập phân)
+            df['total_time'] = df['total_time'].round(3)
+            df['network_time'] = df['network_time'].round(3)
+            df['processing_time'] = df['processing_time'].round(3)
+            
             # Sắp xếp lại cột
             columns = ['request_number', 'timestamp', 'total_time', 'network_time', 
                       'processing_time', 'network_percentage', 'processing_percentage',
