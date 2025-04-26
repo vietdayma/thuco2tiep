@@ -1,17 +1,17 @@
 services:
-  - type: web
-    name: co2-emission-api
-    env: python
-    buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
-    startCommand: gunicorn --config gunicorn_config.py api_server:app
-    envVars:
-      - key: PYTHON_VERSION
+  - type: web  # Loại dịch vụ là web application
+    name: co2-emission-api  # Tên dịch vụ trên nền tảng Render.com
+    env: python  # Môi trường runtime là Python
+    buildCommand: |  # Lệnh để build ứng dụng
+      pip install --upgrade pip  # Cập nhật pip lên phiên bản mới nhất
+      pip install -r requirements.txt  # Cài đặt các thư viện phụ thuộc
+    startCommand: gunicorn --config gunicorn_config.py api_server:app  # Lệnh để khởi động ứng dụng với gunicorn
+    envVars:  # Các biến môi trường
+      - key: PYTHON_VERSION  # Chỉ định phiên bản Python
         value: 3.8.17
-      - key: RENDER
+      - key: RENDER  # Biến môi trường đánh dấu đang chạy trên Render.com
         value: true
-    healthCheckPath: /health
-    autoDeploy: true 
+    healthCheckPath: /health  # Đường dẫn kiểm tra sức khỏe ứng dụng
+    autoDeploy: true  # Tự động triển khai khi có thay đổi trên nhánh chính
 
     

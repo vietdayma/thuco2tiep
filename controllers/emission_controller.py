@@ -1,107 +1,114 @@
+# Mô tả: Lớp điều khiển chính cho việc dự đoán khí thải CO2
+# Lớp này đóng vai trò trung gian giữa mô hình và giao diện người dùng
+
 from models.emission_model import EmissionModel
 import pandas as pd
 import requests
 import os
 import logging
 
-# Cấu hình logging
+# Cấu hình logging để theo dõi quá trình thực thi
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO,  # Mức độ log: chỉ hiển thị thông tin từ INFO trở lên
+    format='%(asctime)s - %(levelname)s - %(message)s'  # Định dạng log: thời gian - mức độ - nội dung
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # Khởi tạo logger cho module này
 
 class EmissionController:
     def __init__(self):
-        self.model = EmissionModel()
-        self.trained = False
-        self.avg_emission = None
-        # Use API URL from environment or default to local for development
+        # Khởi tạo EmissionController với các thuộc tính ban đầu
+        self.model = EmissionModel()  # Tạo instance của mô hình dự đoán
+        self.trained = False  # Trạng thái huấn luyện của mô hình
+        self.avg_emission = None  # Giá trị trung bình của khí thải CO2
+        # URL API từ biến môi trường hoặc mặc định là localhost
         self.api_url = os.environ.get('API_URL', 'http://localhost:10000') + "/predict"
 
     def initialize_model(self, data_path):
-        """Initialize and train the model"""
-        logger.info("Initializing model...")
+        """Khởi tạo và huấn luyện mô hình"""
+        logger.info("Khởi tạo mô hình...")
         
-        # Try to load trained model first
+        # Thử tải mô hình đã huấn luyện trước
         if self.model.load_model():
-            logger.info("Successfully loaded pre-trained model")
+            logger.info("Đã tải thành công mô hình đã huấn luyện trước đó")
             self.trained = True
         else:
-            logger.info("No pre-trained model found. Training new model...")
+            logger.info("Không tìm thấy mô hình đã huấn luyện. Đang huấn luyện mô hình mới...")
             
-        # Get test score (will be calculated from loaded model or from training)
+        # Lấy điểm kiểm tra (được tính từ mô hình đã tải hoặc từ quá trình huấn luyện)
         test_score = self.model.train(data_path)
         self.trained = True
         
-        # Calculate average emission
+        # Tính toán giá trị khí thải trung bình
         df = self.model.load_and_preprocess_data(data_path)
         self.avg_emission = df['CO2 Emissions(g/km)'].mean()
         
-        logger.info(f"Model initialization complete. Test score: {test_score:.3f}")
+        logger.info(f"Khởi tạo mô hình hoàn tất. Điểm kiểm tra: {test_score:.3f}")
         return test_score
 
     def predict_emission(self, features):
-        """Make prediction using the model"""
+        """Dự đoán khí thải sử dụng mô hình cục bộ"""
         if not self.trained:
-            raise ValueError("Model needs to be trained first!")
+            raise ValueError("Mô hình cần được huấn luyện trước!")
         
         return self.model.predict(features)
 
     def predict_emission_api(self, features):
-        """Make prediction using the API and return full response including processing time"""
+        """Dự đoán khí thải sử dụng API và trả về phản hồi đầy đủ bao gồm thời gian xử lý"""
         try:
-            # Send request to API
+            # Gửi yêu cầu đến API
             response = requests.post(self.api_url, json=features)
             response.raise_for_status()
             
-            # Return full response data
+            # Trả về dữ liệu phản hồi đầy đủ
             return response.json()
         except requests.exceptions.RequestException as e:
-            raise Exception(f"API request failed: {str(e)}")
+            raise Exception(f"Yêu cầu API thất bại: {str(e)}")
 
     def get_feature_importance(self):
-        """Get feature importance scores"""
+        """Lấy điểm quan trọng của các đặc trưng"""
         if not self.trained:
-            raise ValueError("Model needs to be trained first!")
+            raise ValueError("Mô hình cần được huấn luyện trước!")
         
         return self.model.get_feature_importance()
 
     def get_average_emission(self):
-        """Get average emission value"""
+        """Lấy giá trị khí thải trung bình"""
         return self.avg_emission
 
     def get_emission_rating(self, emission_value):
-        """Get emission rating (A to F)"""
+        """Lấy xếp hạng khí thải (A đến F)"""
         if emission_value < 100:
-            return 'A'
+            return 'A'  # Phát thải rất thấp
         elif emission_value < 120:
-            return 'B'
+            return 'B'  # Phát thải thấp
         elif emission_value < 140:
-            return 'C'
+            return 'C'  # Phát thải trung bình thấp
         elif emission_value < 160:
-            return 'D'
+            return 'D'  # Phát thải trung bình
         elif emission_value < 180:
-            return 'E'
+            return 'E'  # Phát thải cao
         else:
-            return 'F'
+            return 'F'  # Phát thải rất cao
 
     def get_eco_tips(self, emission_value):
-        """Get eco-friendly tips based on emission value"""
+        """Cung cấp mẹo thân thiện với môi trường dựa trên giá trị khí thải"""
         tips = []
         if emission_value > 160:
+            # Mẹo cho phương tiện phát thải cao
             tips.extend([
-                "Consider switching to a more fuel-efficient vehicle",
-                "Regular maintenance can help reduce emissions",
-                "Avoid aggressive acceleration and braking"
+                "Xem xét chuyển sang phương tiện tiết kiệm nhiên liệu hơn",
+                "Bảo dưỡng định kỳ có thể giúp giảm khí thải",
+                "Tránh tăng tốc và phanh mạnh"
             ])
         if emission_value > 140:
+            # Mẹo cho phương tiện phát thải trung bình
             tips.extend([
-                "Check tire pressure regularly",
-                "Remove excess weight from the vehicle"
+                "Kiểm tra áp suất lốp thường xuyên",
+                "Loại bỏ trọng lượng dư thừa khỏi phương tiện"
             ])
+        # Mẹo chung cho mọi phương tiện
         tips.extend([
-            "Use eco-driving techniques",
-            "Plan your trips to avoid traffic"
+            "Sử dụng kỹ thuật lái xe sinh thái",
+            "Lên kế hoạch cho các chuyến đi để tránh tắc nghẽn giao thông"
         ])
         return tips 
