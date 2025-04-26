@@ -141,26 +141,31 @@ class BenchmarkUtils:
             ax.text(0.5, 0.5, 'Không có dữ liệu request thành công để hiển thị', 
                    ha='center', va='center')
             ax.set_xlabel('Số thứ tự request')
-            ax.set_ylabel('Thời gian (ms)')
+            ax.set_ylabel('Thời gian (s)')
             ax.set_title('Biểu đồ phân tích thời gian phản hồi')
             return fig
             
         fig, ax = plt.subplots(figsize=(10, 4))
         
+        # Chuyển đổi thời gian từ ms sang s
+        total_time_s = successful_df['total_time'] / 1000
+        network_time_s = successful_df['network_time'] / 1000
+        processing_time_s = successful_df['processing_time'] / 1000
+        
         # Vẽ tổng thời gian
-        ax.plot(range(len(successful_df)), successful_df['total_time'], 
+        ax.plot(range(len(successful_df)), total_time_s, 
                 label='Tổng thời gian', color='blue')
         
         # Vẽ thời gian mạng
-        ax.plot(range(len(successful_df)), successful_df['network_time'],
+        ax.plot(range(len(successful_df)), network_time_s,
                 label='Thời gian mạng', color='red', alpha=0.7)
         
         # Vẽ thời gian xử lý
-        ax.plot(range(len(successful_df)), successful_df['processing_time'],
+        ax.plot(range(len(successful_df)), processing_time_s,
                 label='Thời gian xử lý', color='green', alpha=0.7)
         
         ax.set_xlabel('Số thứ tự request')
-        ax.set_ylabel('Thời gian (ms)')
+        ax.set_ylabel('Thời gian (s)')
         ax.set_title('Biểu đồ phân tích thời gian phản hồi')
         ax.legend()
         plt.grid(True, alpha=0.3)
@@ -185,29 +190,34 @@ class BenchmarkUtils:
             fig, ax = plt.subplots(figsize=(10, 4))
             ax.text(0.5, 0.5, 'Không có dữ liệu request thành công để hiển thị', 
                    ha='center', va='center')
-            ax.set_xlabel('Thời gian (ms)')
+            ax.set_xlabel('Thời gian (s)')
             ax.set_ylabel('Tần suất')
             ax.set_title('Phân phối thời gian phản hồi')
             return fig
             
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 4))
         
+        # Chuyển đổi thời gian từ ms sang s
+        total_time_s = successful_df['total_time'] / 1000
+        network_time_s = successful_df['network_time'] / 1000
+        processing_time_s = successful_df['processing_time'] / 1000
+        
         # Phân phối tổng thời gian
-        ax1.hist(successful_df['total_time'], bins=30, color='blue', alpha=0.7)
-        ax1.set_xlabel('Tổng thời gian (ms)')
+        ax1.hist(total_time_s, bins=30, color='blue', alpha=0.7)
+        ax1.set_xlabel('Tổng thời gian (s)')
         ax1.set_ylabel('Tần suất')
         ax1.set_title('Tổng thời gian phản hồi')
         ax1.grid(True, alpha=0.3)
         
         # Phân phối thời gian mạng
-        ax2.hist(successful_df['network_time'], bins=30, color='red', alpha=0.7)
-        ax2.set_xlabel('Thời gian mạng (ms)')
+        ax2.hist(network_time_s, bins=30, color='red', alpha=0.7)
+        ax2.set_xlabel('Thời gian mạng (s)')
         ax2.set_title('Thời gian mạng')
         ax2.grid(True, alpha=0.3)
         
         # Phân phối thời gian xử lý
-        ax3.hist(successful_df['processing_time'], bins=30, color='green', alpha=0.7)
-        ax3.set_xlabel('Thời gian xử lý (ms)')
+        ax3.hist(processing_time_s, bins=30, color='green', alpha=0.7)
+        ax3.set_xlabel('Thời gian xử lý (s)')
         ax3.set_title('Thời gian xử lý')
         ax3.grid(True, alpha=0.3)
         
@@ -228,6 +238,11 @@ class BenchmarkUtils:
         """
         df = pd.DataFrame(self.results)
         if not df.empty:
+            # Chuyển đổi thời gian từ ms sang s
+            df['total_time'] = (df['total_time'] / 1000).round(3)
+            df['network_time'] = (df['network_time'] / 1000).round(3)
+            df['processing_time'] = (df['processing_time'] / 1000).round(3)
+            
             # Tính toán các phần trăm
             total_time = df['total_time']
             df['network_percentage'] = (df['network_time'] / total_time * 100).round(2)
@@ -241,4 +256,12 @@ class BenchmarkUtils:
                       'processing_time', 'network_percentage', 'processing_percentage',
                       'prediction', 'status', 'error']
             df = df[columns]
+            
+            # Đổi tên cột thể hiện đơn vị thời gian là giây
+            df = df.rename(columns={
+                'total_time': 'total_time (s)',
+                'network_time': 'network_time (s)',
+                'processing_time': 'processing_time (s)'
+            })
+            
         return df 

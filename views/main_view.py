@@ -298,8 +298,8 @@ class MainView:
             st.write("Ví dụ tham số ngẫu nhiên:", features)
         
         # Đặt các tham số benchmark
-        num_requests = st.slider("Số lượng request", min_value=10, max_value=1000, value=100, step=10)
-        concurrency = st.slider("Số lượng request đồng thời", min_value=1, max_value=50, value=10, step=1)
+        num_requests = st.slider("Số lượng request", min_value=10, max_value=1000, value=1000, step=10)
+        concurrency = st.slider("Số lượng request đồng thời", min_value=1, max_value=50, value=50, step=1)
         
         # Hàm thực hiện một request
         def make_request():
@@ -407,11 +407,11 @@ class MainView:
                 st.metric("Yêu cầu thành công", f"{stats['successful_requests']} ({stats['success_rate']:.1f}%)")
             
             with col2:
-                st.metric("Thời gian trung bình", f"{stats['avg_total_time']:.2f} ms")
-                st.metric("Thời gian mạng", f"{stats['avg_network_time']:.2f} ms")
+                st.metric("Thời gian trung bình", f"{stats['avg_total_time']/1000:.3f} s")
+                st.metric("Thời gian mạng", f"{stats['avg_network_time']/1000:.3f} s")
             
             with col3:
-                st.metric("Thời gian xử lý", f"{stats['avg_processing_time']:.2f} ms")
+                st.metric("Thời gian xử lý", f"{stats['avg_processing_time']/1000:.3f} s")
                 st.metric("Yêu cầu/giây", f"{stats['requests_per_second']:.2f}")
             
             # Hiển thị biểu đồ
